@@ -1,33 +1,29 @@
 name: build and release
 
 on:
-  push:
-    branches:
-      - main
-  schedule:
-    - cron: '0 1 * * *'
+  workflow_dispatch:  # 响应外部触发器
+    inputs:
+      tag:
+        description: 'Release Tag'
+        required: true
+        type: string
 
 jobs:
   build-release:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-
-    - name: Get Version
-      run: |
-        ./check.sh
-        echo "tag=$(cat tag)" >> $GITHUB_ENV
-
     - name: Build
-      if: ${{ env.tag != '0' }}
-      run: ./build.sh
-
+      run: |
+        echo "will build $TAG"
+        ./build.sh "$TAG"
     - name: Release
       uses: softprops/action-gh-release@v2
-      if: ${{ env.tag != '0' }}
       with:
-        tag_name: v${{ env.tag }}
+        tag_name: ${{ inputs.tag }}
         files: |
           *.deb
           Packages
