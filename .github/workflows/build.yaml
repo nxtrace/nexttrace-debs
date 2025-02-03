@@ -28,3 +28,5 @@ jobs:
           *.deb
           Packages
           Release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GT_Token }}
