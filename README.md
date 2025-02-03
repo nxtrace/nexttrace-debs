@@ -9,4 +9,5 @@ Self-packaged [nexttrace](https://github.com/nxtrace/NTrace-core) for use on Deb
 echo "deb [trusted=yes] https://github.com/nxtrace/nexttrace-debs/releases/latest/download ./" |
     sudo tee /etc/apt/sources.list.d/nexttrace.list
 sudo apt update
+sudo apt install nexttrace
 ```
