@@ -6,7 +6,7 @@ Self-packaged [nexttrace](https://github.com/nxtrace/NTrace-core) for use on Deb
 ## Usage/用法
 
 ```sh
-echo "deb [trusted=yes] https://github.com/wcbing-build/nexttrace-debs/releases/latest/download ./" |
+echo "deb [trusted=yes] https://github.com/nxtrace/nexttrace-debs/releases/latest/download ./" |
     sudo tee /etc/apt/sources.list.d/nexttrace.list
 sudo apt update
 ```
