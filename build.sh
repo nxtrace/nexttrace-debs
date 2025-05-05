@@ -24,7 +24,7 @@ build() {
     curl -sLo "$BASE_DIR/usr/bin/nexttrace" "$(get_url_by_arch $1)"
     chmod 755 "$BASE_DIR/usr/bin/nexttrace"
     # Build
-    dpkg-deb --build --root-owner-group "$BASE_DIR"
+    dpkg-deb --build --root-owner-group -Z xz "$BASE_DIR"
 }
 
 for i in $ARCH; do
