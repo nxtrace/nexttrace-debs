@@ -12,7 +12,6 @@ The `.deb` packages of [nexttrace](https://github.com/nxtrace/NTrace-core), suit
 ### 添加 apt 仓库
 
 ```sh
-sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://github.com/nxtrace/nexttrace-debs/releases/latest/download/nexttrace-archive-keyring.gpg | sudo tee /etc/apt/keyrings/nexttrace.gpg >/dev/null
 echo "Types: deb
 URIs: https://github.com/nxtrace/nexttrace-debs/releases/latest/download/
@@ -27,7 +26,6 @@ sudo apt install nexttrace
 ### add apt repository
 
 ```sh
-sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://github.com/nxtrace/nexttrace-debs/releases/latest/download/nexttrace-archive-keyring.gpg | sudo tee /etc/apt/keyrings/nexttrace.gpg >/dev/null
 echo "Types: deb
 URIs: https://github.com/nxtrace/nexttrace-debs/releases/latest/download/
