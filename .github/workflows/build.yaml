@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: ${{ inputs.tag }}
+      SIGNING_KEY_ID: ${{ secrets.SIGNING_KEY_ID }}
+      SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+      SIGNING_KEY_PASSPHRASE: ${{ secrets.SIGNING_KEY_PASSPHRASE }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -28,5 +31,9 @@ jobs:
           *.deb
           Packages
           Release
+          Release.gpg
+          InRelease
+          nexttrace-archive-keyring.gpg
+          nexttrace-archive-keyring.asc
       env:
         GITHUB_TOKEN: ${{ secrets.GT_Token }}
