@@ -27,13 +27,4 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ inputs.tag }}
-        files: |
-          *.deb
-          Packages
-          Release
-          Release.gpg
-          InRelease
-          nexttrace-archive-keyring.gpg
-          nexttrace-archive-keyring.asc
-      env:
-        GITHUB_TOKEN: ${{ secrets.GT_Token }}
+        files: output/*

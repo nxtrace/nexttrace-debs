@@ -3,7 +3,7 @@
 TAG="$1"
 VERSION=$(echo $TAG | sed 's/^v//')
 
-ARCH="amd64 arm64"
+ARCH_LIST="amd64 arm64"
 AMD64_FILENAME="nexttrace_linux_amd64"
 ARM64_FILENAME="nexttrace_linux_arm64"
 
@@ -103,23 +103,26 @@ get_url_by_arch() {
 
 build() {
     # Prepare
-    BASE_DIR="nexttrace"_"$VERSION"-1_"$1"
+    BASE_DIR="nexttrace"_"$VERSION"-1_"$ARCH"
     cp -r templates "$BASE_DIR"
-    sed -i "s/Architecture: arch/Architecture: $1/" "$BASE_DIR/DEBIAN/control"
+    sed -i "s/Architecture: arch/Architecture: $ARCH/" "$BASE_DIR/DEBIAN/control"
     sed -i "s/Version: version/Version: $VERSION-1/" "$BASE_DIR/DEBIAN/control"
     # Download and move file
-    curl -sLo "$BASE_DIR/usr/bin/nexttrace" "$(get_url_by_arch $1)"
+    curl -sLo "$BASE_DIR/usr/bin/nexttrace" "$(get_url_by_arch $ARCH)"
     chmod 755 "$BASE_DIR/usr/bin/nexttrace"
     # Build
-    dpkg-deb --build --root-owner-group -Z xz "$BASE_DIR"
+    dpkg-deb --build --root-owner-group -Z xz "$BASE_DIR" output
 }
 
-for i in $ARCH; do
-    echo "Building $i package..."
-    build "$i"
+mkdir -p output
+
+for ARCH in $ARCH_LIST; do
+    echo "Building $ARCH package..."
+    build
 done
 
 # Create repo files
+cd output || exit 1
 apt-ftparchive packages . > Packages
 apt-ftparchive release . > Release
 sign_release
