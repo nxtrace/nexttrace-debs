@@ -103,10 +103,10 @@ get_url_by_arch() {
 
 build() {
     # Prepare
-    BASE_DIR="nexttrace"_"$VERSION"-1_"$ARCH"
+    BASE_DIR="nexttrace"_"$VERSION"+1_"$ARCH"
     cp -r templates "$BASE_DIR"
     sed -i "s/Architecture: arch/Architecture: $ARCH/" "$BASE_DIR/DEBIAN/control"
-    sed -i "s/Version: version/Version: $VERSION-1/" "$BASE_DIR/DEBIAN/control"
+    sed -i "s/Version: version/Version: $VERSION+1/" "$BASE_DIR/DEBIAN/control"
     # Download and move file
     curl -sLo "$BASE_DIR/usr/bin/nexttrace" "$(get_url_by_arch $ARCH)"
     chmod 755 "$BASE_DIR/usr/bin/nexttrace"
