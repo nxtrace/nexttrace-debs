@@ -5,11 +5,11 @@ The `.deb` packages of [nexttrace](https://github.com/nxtrace/NTrace-core), suit
 
 ## Usage/用法
 
-### 直接下载 .deb 文件
+### Download `.deb` files directly / 直接下载 `.deb` 文件
 
 直接从 [Releases](https://github.com/nxtrace/nexttrace-debs/releases) 下载 .deb 文件。
 
-### 添加 apt 仓库
+### Add apt repository / 添加 apt 仓库
 
 ```sh
 curl -fsSL https://github.com/nxtrace/nexttrace-debs/releases/latest/download/nexttrace-archive-keyring.gpg | sudo tee /etc/apt/keyrings/nexttrace.gpg >/dev/null
@@ -22,18 +22,6 @@ sudo apt install nexttrace
 ```
 
 > 如果你更喜欢 ASCII armor 格式，也可以下载 `nexttrace-archive-keyring.asc`。
-
-### add apt repository
-
-```sh
-curl -fsSL https://github.com/nxtrace/nexttrace-debs/releases/latest/download/nexttrace-archive-keyring.gpg | sudo tee /etc/apt/keyrings/nexttrace.gpg >/dev/null
-echo "Types: deb
-URIs: https://github.com/nxtrace/nexttrace-debs/releases/latest/download/
-Suites: ./
-Signed-By: /etc/apt/keyrings/nexttrace.gpg" | sudo tee /etc/apt/sources.list.d/nexttrace.sources >/dev/null
-sudo apt update
-sudo apt install nexttrace
-```
 
 > `nexttrace-archive-keyring.asc` is also published if you prefer an ASCII-armored key.
 
