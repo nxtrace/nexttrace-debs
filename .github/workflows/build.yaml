@@ -22,6 +22,10 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v6
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends apt-utils
     - name: Build
       run: |
         echo "will build $TAG"
