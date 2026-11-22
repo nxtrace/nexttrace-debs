@@ -61,6 +61,15 @@ def put_once(bucket, key, path, cache):
     require(stored_digest == digest, f"Immutable object conflicts: {key}")
 
 
+def sync_setup(bucket):
+    path = Path(__file__).with_name("setup-apt.sh")
+    subprocess.run(["bash", "-n", path], check=True)
+    content_md5 = base64.b64encode(hashlib.md5(path.read_bytes(), usedforsecurity=False).digest()).decode()
+    result(s3("put-object", "--bucket", bucket, "--key", path.name, "--body", str(path),
+              "--content-type", "text/plain", "--cache-control", REVALIDATE, "--content-md5", content_md5))
+    print(f"Published {path.name} (SHA-256: {sha256(path)})")
+
+
 def activate(bucket, tag):
     require(re.fullmatch(r"(?:debian-)?v[0-9]+(?:\.[0-9]+){2,}(?:-r[1-9][0-9]*)?", tag),
             f"Invalid snapshot tag: {tag}")
@@ -98,11 +107,15 @@ def sync(bucket, output):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--activate", metavar="TAG", help="Restore a retained snapshot")
+    operation = parser.add_mutually_exclusive_group()
+    operation.add_argument("--activate", metavar="TAG", help="Restore a retained snapshot")
+    operation.add_argument("--setup-only", action="store_true", help="Publish the APT setup script")
     args = parser.parse_args()
     bucket = os.environ["APT_R2_BUCKET"]
     if args.activate:
         activate(bucket, args.activate)
+    elif args.setup_only:
+        sync_setup(bucket)
     else:
         with tempfile.TemporaryDirectory() as directory:
             sync(bucket, Path(directory))

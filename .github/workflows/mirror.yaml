@@ -1,6 +1,9 @@
 name: sync apt mirror
 
 on:
+  push:
+    branches: [main]
+    paths: [scripts/setup-apt.sh]
   workflow_dispatch:
   workflow_call:
     secrets:
@@ -25,8 +28,9 @@ jobs:
     steps:
     - uses: actions/checkout@v6
       with:
+        ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.sha }}
         persist-credentials: false
-    - name: Mirror the published stable release
+    - name: Sync APT snapshot or setup script
       env:
         GH_TOKEN: ${{ github.token }}
         APT_R2_ENDPOINT: ${{ vars.APT_R2_ENDPOINT }}
@@ -35,4 +39,10 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.APT_R2_SECRET_ACCESS_KEY }}
         AWS_REQUEST_CHECKSUM_CALCULATION: when_required
         AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
-      run: python3 scripts/mirror.py
+        EVENT_NAME: ${{ github.event_name }}
+      run: |
+        if [[ "$EVENT_NAME" == push ]]; then
+          python3 scripts/mirror.py --setup-only
+        else
+          python3 scripts/mirror.py
+        fi
