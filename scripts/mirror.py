@@ -50,8 +50,15 @@ def put_once(bucket, key, path, cache):
     if "(PreconditionFailed)" not in response.stderr and "(412)" not in response.stderr:
         result(response)
     existing = result(s3("head-object", "--bucket", bucket, "--key", key))
-    require(existing["ContentLength"] == path.stat().st_size
-            and existing.get("Metadata", {}).get("sha256") == digest, f"Immutable object conflicts: {key}")
+    require(existing["ContentLength"] == path.stat().st_size, f"Immutable object conflicts: {key}")
+    stored_digest = existing.get("Metadata", {}).get("sha256")
+    if stored_digest is None:
+        # The Wrangler bootstrap cannot attach S3 user metadata.
+        with tempfile.TemporaryDirectory() as directory:
+            saved = Path(directory) / "object"
+            result(s3("get-object", "--bucket", bucket, "--key", key, str(saved)))
+            stored_digest = sha256(saved)
+    require(stored_digest == digest, f"Immutable object conflicts: {key}")
 
 
 def activate(bucket, tag):
