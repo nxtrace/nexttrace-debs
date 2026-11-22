@@ -41,7 +41,7 @@ sudo apt install curl gpg
     set -e
     key_tmp=$(mktemp -d)
     trap 'rm -rf "$key_tmp"' EXIT
-    curl -fsSL -o "$key_tmp/nexttrace.gpg" https://github.com/nxtrace/nexttrace-debs/releases/latest/download/nexttrace-archive-keyring.gpg
+    curl -fsSL -o "$key_tmp/nexttrace.gpg" https://apt.nxtrace.org/nexttrace-archive-keyring.gpg
     key_info=$(gpg --batch --no-options --homedir "$key_tmp" --show-keys --with-colons "$key_tmp/nexttrace.gpg")
     fingerprint=$(printf '%s\n' "$key_info" | awk -F: '$1 == "pub" { primary = 1 } $1 == "fpr" && primary { print $10; primary = 0 }')
     if [ "$fingerprint" != A2A1FB99E3A11D5B146E170B36281AB257B307FA ]; then
@@ -53,9 +53,10 @@ sudo apt install curl gpg
     sudo install -m 0644 "$key_tmp/nexttrace.gpg" /etc/apt/keyrings/nexttrace.gpg
     sudo tee /etc/apt/sources.list.d/nexttrace.sources >/dev/null <<'EOF'
 Types: deb
-URIs: https://github.com/nxtrace/nexttrace-debs/releases/latest/download/
+URIs: https://apt.nxtrace.org/
 Suites: ./
 Signed-By: /etc/apt/keyrings/nexttrace.gpg
+By-Hash: force
 EOF
     sudo apt update
     sudo apt install nexttrace
@@ -68,17 +69,18 @@ EOF
 
 ### Switch to the APT mirror / 切换 APT 镜像
 
-镜像启用后，现有 GitHub 源仍可继续使用。要切换，先备份并停用原 NextTrace 条目，再将以下配置写入 `/etc/apt/sources.list.d/nexttrace.sources`。已安装的签名公钥可以继续使用。历史配置使用 `Trusted: yes` 或 `trusted=yes` 时，先按上方步骤安装签名公钥。
+GitHub 旧源仍可继续使用。切换时，备份并停用原 NextTrace 条目，将上方的新源配置写入 `/etc/apt/sources.list.d/nexttrace.sources`。可继续使用已安装的签名公钥。历史配置使用 `Trusted: yes` 或 `trusted=yes` 时，先按上方步骤安装公钥，再使用 `Signed-By`。
+
+运行 `sudo apt update`，再用 `apt-cache policy nexttrace nexttrace-tiny ntr` 查看候选版本。
+
+回退时，停用新源并恢复备份，然后重新运行 `sudo apt update`。首次配置 GitHub 旧源时，使用以下配置，并在上方公钥安装命令中改用 [GitHub 公钥下载地址](https://github.com/nxtrace/nexttrace-debs/releases/latest/download/nexttrace-archive-keyring.gpg)。
 
 ```deb822
 Types: deb
-URIs: https://apt.nxtrace.org/
+URIs: https://github.com/nxtrace/nexttrace-debs/releases/latest/download/
 Suites: ./
 Signed-By: /etc/apt/keyrings/nexttrace.gpg
-By-Hash: force
 ```
-
-运行 `sudo apt update`，再用 `apt-cache policy nexttrace nexttrace-tiny ntr` 查看候选版本。切换失败时，恢复备份并重新运行 `sudo apt update`。
 
 ### Install a specific flavor / 安装指定 flavor
 
