@@ -254,7 +254,7 @@ done
 
 cd "${OUTPUT_DIR}"
 apt-ftparchive packages . > Packages
-apt-ftparchive release . > "${WORK_ROOT}/Release"
+apt-ftparchive -o APT::FTPArchive::Release::Suite=stable release . > "${WORK_ROOT}/Release"
 mv "${WORK_ROOT}/Release" Release
 if [[ -n "${SIGNING_KEY_ID}${SIGNING_KEY}${SIGNING_KEY_FILE}${SIGNING_KEY_PASSPHRASE}" ]]; then
     sign_output
