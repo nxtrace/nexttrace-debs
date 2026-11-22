@@ -1,37 +1,102 @@
 name: build and release
 
 on:
-  workflow_dispatch:  # 响应外部触发器
+  workflow_dispatch:
     inputs:
       tag:
-        description: 'Release Tag'
+        description: Upstream Release Tag
         required: true
+        type: string
+      revision:
+        description: Debian package revision
+        default: '1'
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build-release:
+  build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       TAG: ${{ inputs.tag }}
-      SIGNING_KEY_ID: ${{ secrets.SIGNING_KEY_ID }}
-      SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-      SIGNING_KEY_PASSPHRASE: ${{ secrets.SIGNING_KEY_PASSPHRASE }}
+      REVISION: ${{ inputs.revision || '1' }}
+    outputs:
+      release_tag: ${{ steps.prepare.outputs.release_tag }}
+      version: ${{ steps.prepare.outputs.version }}
+      skip: ${{ steps.prepare.outputs.skip }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v6
+    - uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+    - name: Check upstream release
+      id: prepare
+      run: python3 scripts/release.py prepare "$TAG" "$REVISION" "$RUNNER_TEMP/nexttrace-upstream.json" >> "$GITHUB_OUTPUT"
     - name: Install dependencies
+      if: steps.prepare.outputs.skip == 'false'
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends apt-utils
     - name: Build
-      run: |
-        echo "will build $TAG"
-        ./build.sh "$TAG"
-    - name: Release
-      uses: softprops/action-gh-release@v3
+      if: steps.prepare.outputs.skip == 'false'
+      run: UPSTREAM_RELEASE_FILE="$RUNNER_TEMP/nexttrace-upstream.json" ./build.sh "$TAG" "$REVISION"
+    - name: Sign package index
+      if: steps.prepare.outputs.skip == 'false'
+      env:
+        SIGNING_KEY_ID: ${{ secrets.SIGNING_KEY_ID }}
+        SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        SIGNING_KEY_PASSPHRASE: ${{ secrets.SIGNING_KEY_PASSPHRASE }}
+      run: ./build.sh --sign-output
+    - name: Verify packages and signatures
+      if: steps.prepare.outputs.skip == 'false'
+      env:
+        EXPECTED_SIGNING_FINGERPRINT: A2A1FB99E3A11D5B146E170B36281AB257B307FA
+      run: ./build.sh --verify-output "$TAG" "$REVISION"
+    - uses: actions/upload-artifact@v4
+      if: steps.prepare.outputs.skip == 'false'
       with:
-        tag_name: ${{ inputs.tag }}
+        name: apt-release
+        path: output/
+        if-no-files-found: error
+        compression-level: 0
+        overwrite: true
+
+  publish:
+    needs: build
+    if: needs.build.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-apt-release
+      queue: max
+    env:
+      RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+    - uses: actions/download-artifact@v4
+      with:
+        name: apt-release
+        path: output/
+    - name: Check release version and tag
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: python3 scripts/release.py check-publish "$RELEASE_TAG" "$GITHUB_SHA" "$VERSION"
+    - name: Upload release draft
+      id: draft
+      uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
+      with:
+        tag_name: ${{ env.RELEASE_TAG }}
+        target_commitish: ${{ github.sha }}
+        draft: true
+        fail_on_unmatched_files: true
         files: output/*
+    - name: Verify uploaded assets and publish
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RELEASE_ID: ${{ steps.draft.outputs.id }}
+      run: python3 scripts/release.py publish "$RELEASE_TAG" "$GITHUB_SHA" "$RELEASE_ID" output
