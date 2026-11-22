@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -17,6 +18,8 @@ METADATA = {
     "Packages", "Release", "Release.gpg", "InRelease",
     "nexttrace-archive-keyring.gpg", "nexttrace-archive-keyring.asc",
 }
+KEY_FINGERPRINT = "A2A1FB99E3A11D5B146E170B36281AB257B307FA"
+PACKAGE_FILENAME = re.compile(r"(?:nexttrace(?:-tiny)?|ntr)_[0-9][0-9A-Za-z.+~-]*_[a-z0-9]+\.deb")
 
 
 def require(condition, message):
@@ -77,7 +80,17 @@ def package_fields(packages):
         yield dict(line.split(": ", 1) for line in stanza.splitlines() if not line.startswith((" ", "\t")))
 
 
-def verify(args):
+def package_names(packages):
+    names = set()
+    for fields in package_fields(packages):
+        name = f"{fields['Package']}_{fields['Version']}_{fields['Architecture']}.deb"
+        require(PACKAGE_FILENAME.fullmatch(name) and name not in names and fields["Filename"] == f"./{name}",
+                f"Unexpected or duplicate Packages entry: {name}")
+        names.add(name)
+    return names
+
+
+def verify(args, allow_legacy_release=False):
     output = args.output.resolve()
     require({file.name for file in output.iterdir()} == METADATA | set(args.names),
             "Unexpected files in package output")
@@ -97,7 +110,11 @@ def verify(args):
             == release.read_bytes(), "InRelease content differs from Release")
     index = output / "Packages"
     checksums = re.search(r"(?m)^SHA256:\n((?:[ \t]+[^\n]+\n)+)", release.read_text())
-    require(checksums and checksums[1].split() == [sha256(index), str(index.stat().st_size), "Packages"],
+    index_entries = [line.split() for line in checksums[1].splitlines()] if checksums else []
+    if allow_legacy_release:
+        # Older apt-ftparchive runs included their partially written Release.
+        index_entries = [entry for entry in index_entries if entry[-1] != "Release"]
+    require(index_entries == [[sha256(index), str(index.stat().st_size), "Packages"]],
             "Release does not match Packages")
     seen = set()
     for fields in package_fields(index.read_bytes()):
@@ -114,6 +131,25 @@ def verify(args):
 def gh(endpoint, *args):
     repo = os.environ["GITHUB_REPOSITORY"]
     return json.loads(run("gh", "api", f"repos/{repo}/{endpoint}", *args))
+
+
+def download_assets(release, names, output):
+    assets = {asset["name"]: asset for asset in release["assets"]}
+    for name in names:
+        asset = assets.get(name, {})
+        require(asset.get("state") == "uploaded" and re.fullmatch(DIGEST_PATTERN, asset.get("digest") or ""),
+                f"Missing release asset or SHA-256: {name}")
+        require(not (output / name).exists(), f"Release asset already exists: {name}")
+
+    def fetch(name):
+        asset = assets[name]
+        path = output / name
+        run("curl", "-fsSL", "--retry", "3", "-o", path, asset["browser_download_url"])
+        require(asset["digest"] == f"sha256:{sha256(path)}" and asset["size"] == path.stat().st_size,
+                f"Release asset checksum or size mismatch: {name}")
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        list(pool.map(fetch, sorted(names)))
 
 
 def check_publish(args):
@@ -136,6 +172,13 @@ def check_publish(args):
     current, = {fields["Version"] for fields in package_fields(packages)}
     require(subprocess.run(["dpkg", "--compare-versions", args.version, "gt", current]).returncode == 0,
             f"Candidate {args.version} must be newer than current stable {current}")
+    # Old clients may still have the previous index cached through the latest URL.
+    names = package_names(packages)
+    download_assets(latest, names, args.output)
+    for fields in package_fields(packages):
+        path = args.output / fields["Filename"]
+        require(fields["SHA256"] == sha256(path) and int(fields["Size"]) == path.stat().st_size,
+                f"Previous package does not match its index: {path.name}")
 
 
 def publish(args):
@@ -162,7 +205,7 @@ def main():
         (prepare, ("tag", "revision", "metadata")),
         (digests, ("tag", "metadata", "names")),
         (verify, ("output", "fingerprint", "names")),
-        (check_publish, ("tag", "commit", "version")),
+        (check_publish, ("tag", "commit", "version", "output")),
         (publish, ("tag", "commit", "id", "output")),
     ):
         command = commands.add_parser(fn.__name__.replace("_", "-"))

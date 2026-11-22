@@ -66,6 +66,20 @@ EOF
 
 > `nexttrace-archive-keyring.asc` is also published if you prefer an ASCII-armored key.
 
+### Switch to the APT mirror / 切换 APT 镜像
+
+镜像启用后，现有 GitHub 源仍可继续使用。要切换，先备份并停用原 NextTrace 条目，再将以下配置写入 `/etc/apt/sources.list.d/nexttrace.sources`。已安装的签名公钥可以继续使用。历史配置使用 `Trusted: yes` 或 `trusted=yes` 时，先按上方步骤安装签名公钥。
+
+```deb822
+Types: deb
+URIs: https://apt.nxtrace.org/
+Suites: ./
+Signed-By: /etc/apt/keyrings/nexttrace.gpg
+By-Hash: force
+```
+
+运行 `sudo apt update`，再用 `apt-cache policy nexttrace nexttrace-tiny ntr` 查看候选版本。切换失败时，恢复备份并重新运行 `sudo apt update`。
+
 ### Install a specific flavor / 安装指定 flavor
 
 ```sh
@@ -100,3 +114,6 @@ sudo apt install ntr
   - `riscv64 -> riscv64`
   - `s390x -> s390x`
 - 当签名启用时，脚本会生成 `Release.gpg`、`InRelease` 以及 `nexttrace-archive-keyring.gpg/.asc`，上传到 Release 里供用户使用。
+- 后续 GitHub Release 会同时保留上一稳定版的 `.deb`，供尚未刷新索引的客户端使用。索引只列当前版本。
+- 镜像使用 Cloudflare R2。配置仓库变量 `APT_R2_BUCKET`、`APT_R2_ENDPOINT`，以及仅有该 bucket 对象读写权限的 Secrets `APT_R2_ACCESS_KEY_ID`、`APT_R2_SECRET_ACCESS_KEY`。手动运行 `sync apt mirror` 可从现有稳定版初始化镜像。后续正式发布成功后自动同步。
+- 镜像保留版本化软件包、按哈希访问的索引和签名快照。回退时，在同样的 R2 和 AWS 环境变量下运行 `python3 scripts/mirror.py --activate <Release Tag>`。回退期间暂停其他镜像同步。

@@ -82,10 +82,10 @@ jobs:
       with:
         name: apt-release
         path: output/
-    - name: Check release version and tag
+    - name: Check release and retain previous packages
       env:
         GH_TOKEN: ${{ github.token }}
-      run: python3 scripts/release.py check-publish "$RELEASE_TAG" "$GITHUB_SHA" "$VERSION"
+      run: python3 scripts/release.py check-publish "$RELEASE_TAG" "$GITHUB_SHA" "$VERSION" output
     - name: Upload release draft
       id: draft
       uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
@@ -100,3 +100,11 @@ jobs:
         GH_TOKEN: ${{ github.token }}
         RELEASE_ID: ${{ steps.draft.outputs.id }}
       run: python3 scripts/release.py publish "$RELEASE_TAG" "$GITHUB_SHA" "$RELEASE_ID" output
+
+  mirror:
+    needs: publish
+    if: vars.APT_R2_ENDPOINT != '' && vars.APT_R2_BUCKET != ''
+    uses: ./.github/workflows/mirror.yaml
+    secrets:
+      APT_R2_ACCESS_KEY_ID: ${{ secrets.APT_R2_ACCESS_KEY_ID }}
+      APT_R2_SECRET_ACCESS_KEY: ${{ secrets.APT_R2_SECRET_ACCESS_KEY }}

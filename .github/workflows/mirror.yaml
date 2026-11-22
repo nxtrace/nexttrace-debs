@@ -1,0 +1,38 @@
+name: sync apt mirror
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      APT_R2_ACCESS_KEY_ID:
+        required: false
+      APT_R2_SECRET_ACCESS_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apt-mirror
+  queue: max
+
+jobs:
+  sync:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      vars.APT_R2_ENDPOINT != '' && vars.APT_R2_BUCKET != ''
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+    - name: Mirror the published stable release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        APT_R2_ENDPOINT: ${{ vars.APT_R2_ENDPOINT }}
+        APT_R2_BUCKET: ${{ vars.APT_R2_BUCKET }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.APT_R2_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.APT_R2_SECRET_ACCESS_KEY }}
+        AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+        AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      run: python3 scripts/mirror.py
