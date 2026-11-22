@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 
 
 UPSTREAM = "nxtrace/NTrace-core"
@@ -96,18 +97,21 @@ def verify(args, allow_legacy_release=False):
             "Unexpected files in package output")
     keyring = output / "nexttrace-archive-keyring.gpg"
     armored = output / "nexttrace-archive-keyring.asc"
-    require(run("gpg", "--batch", "--no-options", "--dearmor", "--output", "-", armored) == keyring.read_bytes(),
-            "Exported public keys differ")
-    if args.fingerprint:
-        print_keys = run("gpg", "--batch", "--no-options", "--with-colons", "--show-keys", keyring).decode().splitlines()
-        fingerprints = [line.split(":")[9] for line in print_keys if line.startswith("fpr:")]
-        require(sum(line.startswith("pub:") for line in print_keys) == 1
-                and fingerprints and fingerprints[0] == args.fingerprint,
-                "Signing key does not match the published APT key")
     release = output / "Release"
-    run("gpgv", "--keyring", keyring, output / "Release.gpg", release)
-    require(run("gpgv", "--keyring", keyring, "--output", "-", output / "InRelease")
-            == release.read_bytes(), "InRelease content differs from Release")
+    with TemporaryDirectory() as gnupghome:
+        gpg = ("gpg", "--batch", "--no-options", "--homedir", gnupghome)
+        require(run(*gpg, "--dearmor", "--output", "-", armored) == keyring.read_bytes(),
+                "Exported public keys differ")
+        if args.fingerprint:
+            print_keys = run(*gpg, "--with-colons", "--show-keys", keyring).decode().splitlines()
+            fingerprints = [line.split(":")[9] for line in print_keys if line.startswith("fpr:")]
+            require(sum(line.startswith("pub:") for line in print_keys) == 1
+                    and fingerprints and fingerprints[0] == args.fingerprint,
+                    "Signing key does not match the published APT key")
+        gpgv = ("gpgv", "--homedir", gnupghome, "--keyring", keyring)
+        run(*gpgv, output / "Release.gpg", release)
+        require(run(*gpgv, "--output", "-", output / "InRelease") == release.read_bytes(),
+                "InRelease content differs from Release")
     index = output / "Packages"
     checksums = re.search(r"(?m)^SHA256:\n((?:[ \t]+[^\n]+\n)+)", release.read_text())
     index_entries = [line.split() for line in checksums[1].splitlines()] if checksums else []
